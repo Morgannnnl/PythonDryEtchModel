@@ -49,7 +49,7 @@ order in which it was created:
 ################################ USER INPUTS ##################################
 ###############################################################################
 
-# define recipe
+# define recipe     定义配方，bosch时间，iso时间，总共循环次数
 # ex: {'step1':{'bosch':13,'iso':100,'cylces':7},
 #      'step2':{'bosch':240,'iso':None,'cycles':240},
 #      'step3':{'bosch':None,'iso':70,'cycles':1}}
@@ -74,46 +74,46 @@ gap = 249/pixel_um_conv
 # for R5_C3: 49.291/80.4384  # px/um
 
 # read in mask image and define contour
-im_path = im_dir + im_file
-curr_im = cv2.imread(im_path, cv2.IMREAD_ANYDEPTH)   
-curr_im = cv2.GaussianBlur(curr_im,(3,3),0)
-rgb_im = cv2.cvtColor(curr_im, cv2.COLOR_GRAY2RGB)
-cont_im, conts, hier = cv2.findContours(curr_im, cv2.RETR_LIST, 
+im_path = im_dir + im_file  #合并路径
+curr_im = cv2.imread(im_path, cv2.IMREAD_ANYDEPTH)   #保留图像原始深度
+curr_im = cv2.GaussianBlur(curr_im,(3,3),0) #高斯模糊，核3*3
+rgb_im = cv2.cvtColor(curr_im, cv2.COLOR_GRAY2RGB)  #转换成RGB色彩
+cont_im, conts, hier = cv2.findContours(curr_im, cv2.RETR_LIST,     #轮廓检测
                                         cv2.CHAIN_APPROX_NONE)    
-conts_im = cv2.drawContours(rgb_im, conts, -1, (0,255,0),3)
+conts_im = cv2.drawContours(rgb_im, conts, -1, (0,255,0),3) #轮廓绘制
 # show the contour to verify 
-dummy_i = im_file.find('.png')
-out_file = im_dir + im_file[:dummy_i] + '_out' + im_file[dummy_i:]
-cv2.imwrite(out_file, conts_im)
+dummy_i = im_file.find('.png')  #找出.png位置
+out_file = im_dir + im_file[:dummy_i] + '_out' + im_file[dummy_i:]  #插入.out后的文件名
+cv2.imwrite(out_file, conts_im)     #将生成的文件进行绘制
 
-cell_size = 8 # microns
-wafer_thickness = 500  # microns
+cell_size = 8 # microns 三维网络单元尺寸
+wafer_thickness = 500  # microns 硅片厚度
 
-t_start = 0 # seconds
-t_step = 5
+t_start = 0 # 仿真起始时间
+t_step = 5  # 时间步长
 
-h = curr_im.shape[0]
-w = curr_im.shape[1]
+h = curr_im.shape[0]    #图像高度（像素）
+w = curr_im.shape[1]    #图像宽度（像素）
 
-contour_read_step = 5
-topo_im = np.zeros_like(curr_im)
-norm_span = 7  # span of data points taken for computing normals
-window_len = 17  # for smoothing of mask contour read
-horiz_to_vert_rate_ratio = 0.6
-def vert_rate(z):
+contour_read_step = 5   #轮廓采样步长
+topo_im = np.zeros_like(curr_im)    #与掩膜图像同尺寸的二维全0数组
+norm_span = 7  # span of data points taken for computing normals 通过滑动窗口进行法线计算
+window_len = 17  # for smoothing of mask contour read   轮廓平滑滤波
+horiz_to_vert_rate_ratio = 0.6  #刻蚀速率 水平/竖直=0.6
+def vert_rate(z):   #垂直蚀刻模型
     a = 0.141
     b = 0.0007
-#    return a*np.exp(-b*z)
-    return (0.14-0.02) + z*(0.03/500)
+#    return a*np.exp(-b*z)  湿法刻蚀，指数衰减
+    return (0.14-0.02) + z*(0.03/500)   #深硅蚀刻，线性，使用等离子体
 #    d = a*np.exp(-b*z)
 #    return d + d/2* np.cos(z * 2*np.pi/10)
-def horiz_rate(z):
+def horiz_rate(z):  #水平蚀刻模型
     r = (0.65-0.1)+z*(0.1/500)
     return r*vert_rate(z)
 #    return 0.6 + 0.2* np.cos(z * 2*np.pi/10)
 
 #vert_rate = 8.5/60  # um/s
-def bosch_vert_step(z):
+def bosch_vert_step(z): #步进模型
     return (0.84-0.1) + 0.1/500*z
 #    return 0.84 + 0.4* np.cos(z * 2*np.pi/10)
     
@@ -122,13 +122,13 @@ def bosch_vert_step(z):
 #horiz_rate = 0.09# vert_rate*0.6#90/600 # vert_rate*0.6  # um/s
 
 # advanced settings
-set_res = 3000  # resolution of vtk plane (mesh density)
-cmap = 'gnuplot'  # 'inferno' 'viridis'  # 'hot'
-vmin = -290  # expected range of depth for color bar (min)
-vmax = 0
+set_res = 3000  # resolution of vtk plane (mesh density) VTK平面分辨率 (网格点数/平方毫米)
+cmap = 'gnuplot'  # 'inferno' 'viridis'  # 'hot' # 色谱：紫-黄渐变
+vmin = -290  # expected range of depth for color bar (min) 颜色映射最小深度（基准面下290μm）
+vmax = 0    # 颜色映射最大深度（基准面）
 # for plotting srface plot
-rstride = 2
-cstride = 2
+rstride = 2 # 行采样步长（提升渲染速度）
+cstride = 2 # 列采样步长
 
 
 ###############################################################################
@@ -140,7 +140,7 @@ cstride = 2
 # indicated in the script header
 # construct global data container; this is a ordered dictionary so later we
 # can loop over keys and ensure that 
-etch_grid = define_steps(recipe_steps, t_start, t_step)                        
+etch_grid = define_steps(recipe_steps, t_start, t_step)          #定义一个字典              
 n_steps = len(list(etch_grid.keys()))
 
 
